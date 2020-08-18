@@ -1,3 +1,3 @@
 # vojta-tools
 
-written in Python3
+written for Python2
