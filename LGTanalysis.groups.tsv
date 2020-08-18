@@ -1,0 +1,58 @@
+eukaryota	amorphea	amoebozoa	discosea				
+eukaryota	amorphea	amoebozoa	evosea	eumycetozoa+archamoebae	archamoebae		
+eukaryota	amorphea	amoebozoa	evosea	eumycetozoa+archamoebae	eumycetozoa		
+eukaryota	amorphea	amoebozoa	evosea	variosea			
+eukaryota	amorphea	obazoa	apusozoa				
+eukaryota	amorphea	obazoa	opisthokonta	fungi	cytridiomycota+dikarya+mucoromycota	chytridiomycota	
+eukaryota	amorphea	obazoa	opisthokonta	fungi	cytridiomycota+dikarya+mucoromycota	dikarya+mucoromycota	dikarya
+eukaryota	amorphea	obazoa	opisthokonta	fungi	cytridiomycota+dikarya+mucoromycota	dikarya+mucoromycota	mucoromycota
+eukaryota	amorphea	obazoa	opisthokonta	fungi	microsporidia		
+eukaryota	amorphea	obazoa	opisthokonta	holozoa	ichthyosporea		
+eukaryota	amorphea	obazoa	opisthokonta	holozoa	metazoa+choanoflagellata	choanoflagellata	
+eukaryota	amorphea	obazoa	opisthokonta	holozoa	metazoa+choanoflagellata	metazoa	deuterostomia
+eukaryota	amorphea	obazoa	opisthokonta	holozoa	metazoa+choanoflagellata	metazoa	protostomia
+eukaryota	amorphea	obazoa	opisthokonta	holozoa	metazoa+choanoflagellata	metazoa	
+eukaryota	archaeplastida	rhodophyta					
+eukaryota	archaeplastida	viridiplantae	chlorophyta				
+eukaryota	archaeplastida	viridiplantae	streptophyta				
+eukaryota	cryptophyta						
+eukaryota	discoba	heterolobosea+euglenozoa	euglenozoa				
+eukaryota	discoba	heterolobosea+euglenozoa	heterolobosea				
+eukaryota	discoba	jakobida					
+eukaryota	haptista						
+eukaryota	metamonada	parabasalia+fornicata	fornicata				
+eukaryota	metamonada	parabasalia+fornicata	parabasalia				
+eukaryota	metamonada	preaxostyla					
+eukaryota	sar	rhizaria					
+eukaryota	sar	stramenopila+alveolata	alveolata	ciliophora			
+eukaryota	sar	stramenopila+alveolata	alveolata	dino+perk+apico+chrom	apicomplexa+chrompodellids	apicomplexa -> apicomplexa+chrompodellids	
+eukaryota	sar	stramenopila+alveolata	alveolata	dino+perk+apico+chrom	apicomplexa+chrompodellids	colpodellida -> apicomplexa+chrompodellids	
+eukaryota	sar	stramenopila+alveolata	alveolata	dino+perk+apico+chrom	dinoflagellata+perkinsozoa	dinophyceae -> dinoflagellata+perkinsozoa	
+eukaryota	sar	stramenopila+alveolata	alveolata	dino+perk+apico+chrom	dinoflagellata+perkinsozoa	perkinsozoa -> dinoflagellata+perkinsozoa	
+eukaryota	sar	stramenopila+alveolata	stramenopiles	blastocystidae			
+eukaryota	sar	stramenopila+alveolata	stramenopiles	ochrophyta+oomycota	ochrophyta		
+eukaryota	sar	stramenopila+alveolata	stramenopiles	ochrophyta+oomycota	oomycetes		
+archaea	asgard group						
+archaea	euryarchaeota						
+archaea	tack group						
+archaea							
+bacteria	acidobacteria						
+bacteria	nitrospirae						
+bacteria	aquificae						
+bacteria	fusobacteria						
+bacteria	fcb group	bacteroidetes					
+bacteria	fcb group	chlorobi					
+bacteria	proteobacteria	alphaproteobacteria					
+bacteria	proteobacteria	betaproteobacteria					
+bacteria	proteobacteria	gammaproteobacteria					
+bacteria	proteobacteria	deltaproteobacteria					
+bacteria	proteobacteria	epsilonproteobacteria					
+bacteria	pvc group	chlamydiae					
+bacteria	pvc group	planctomycetes					
+bacteria	pvc group	verrucomicrobia					
+bacteria	spirochaetes						
+bacteria	terrabacteria group	actinobacteria					
+bacteria	terrabacteria group	chloroflexi					
+bacteria	terrabacteria group	cyanobacteria					
+bacteria	terrabacteria group	firmicutes					
+bacteria							
