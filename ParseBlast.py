@@ -25,11 +25,12 @@ class Hit:
   #if sHitSeq != None:
   # self.hitSeq = sHitSeq
  def show(self):
-  return self.queryId, self.hitId, self.eval, self.score, self.queryStart, self.queryEnd
+  return self.queryId, self.hitId, self.identity, self.alnLen, self.mismatches, self.gapOpenings, self.queryStart, self.queryEnd, self.hitStart, self.hitEnd, self.eval, self.score
 
 class ParseBlast:
- def __init__(self, file, format='table', ncbi=False):
+ def __init__(self, file, mergeHsps=True, format='table', ncbi=False):
   self.file = file
+  self.bMergeHsps = mergeHsps
   self.sFormat = format
   self.end = 0
   self.bNcbi = ncbi
@@ -47,6 +48,8 @@ class ParseBlast:
   return self
  def __next__(self):
   return self.next()
+  if self.end:
+   raise StopIteration
  
  def initTable(self):
   self.lFirstLine = []
@@ -85,15 +88,30 @@ class ParseBlast:
   if self.end:
    raise StopIteration()
   if self.sFormat == 'table':
-   return self.nextTable()
+   lReturn = self.nextTable()
   elif self.sFormat == 'mytable':
-   return self.nextMytable()
+   lReturn = self.nextMytable()
   elif self.sFormat == 'xml':
-   return self.nextXml()
+   lReturn = self.nextXml()
   elif self.sFormat == 'hspsxml':
-   return self.nextHspsXml()
+   lReturn = self.nextHspsXml()
   else:
    raise
+  if self.bMergeHsps:
+   lHits = []
+   iHsp = 0
+   while iHsp < len(lReturn):
+    lHsps = [lReturn[iHsp]]
+    for iIndex in range(iHsp+1, len(lReturn)):
+     if lReturn[iIndex].hitId == lHsps[0].hitId:
+      lHsps.append(lReturn[iIndex])
+      iHsp += 1
+     else:
+      break
+    lHits.append(lHsps)
+    iHsp += 1
+   lReturn = lHits
+  return lReturn
  
  def nextHsps(self):
   if self.sFormat == 'xml':
@@ -105,7 +123,10 @@ class ParseBlast:
   lHits = [self.lFirstLine]
   try:
    while True:
-    lLine = re.split('\s+', self.file.next().strip())
+    sLine = self.file.readline()
+    if sLine == '':
+     raise StopIteration
+    lLine = re.split('\s+', sLine.strip())
     if lLine[0] != lHits[0][0]:
      self.lFirstLine = lLine
      break
@@ -118,7 +139,10 @@ class ParseBlast:
   lHits = [self.lFirstLine]
   try:
    while True:
-    lLine = re.split('\s+', self.file.next().strip())
+    sLine = self.file.readline()
+    if sLine == '':
+     raise StopIteration
+    lLine = re.split('\s+', sLine.strip())
     if lLine == [''] or lLine == ['Search', 'has', 'CONVERGED!']:
      continue
     if lLine[0] != lHits[0][0]:
@@ -133,7 +157,7 @@ class ParseBlast:
   sHits = self.sFirstLine
   try:
    while True:
-    sLine = self.file.next()
+    sLine = self.file.readline()
     if re.search('<Iteration>', sLine):
      self.sFirstLine = sLine
      break
@@ -146,7 +170,7 @@ class ParseBlast:
   sHits = self.sFirstLine
   try:
    while True:
-    sLine = self.file.next()
+    sLine = self.file.readline()
     if re.search('<Iteration>', sLine):
      self.sFirstLine = sLine
      break

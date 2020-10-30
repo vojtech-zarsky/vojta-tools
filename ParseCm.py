@@ -2,22 +2,22 @@ import re
 import math
 
 class Hit:
- def __init__(self, sQueryId, sHitId, sHitAcc, sHitDesc, iQueryStart, iQueryEnd, iEnvStart, iEnvEnd, iHitStart, iHitEnd, fE, fBits):#, sQuerySeq=None, sHitSeq=None):
+ def __init__(self, sQueryId, sQueryAcc, sHitId, sHitAcc, iQueryStart, iQueryEnd, iHitStart, iHitEnd, sStrand, fGC, fE, fBits):#, sQuerySeq=None, sHitSeq=None):
   #self.db = sDb
   self.queryId = sQueryId
+  self.queryAcc = sQueryAcc
   self.hitId = sHitId
   self.hitAcc = sHitAcc
-  self.hitDesc = sHitDesc
   #self.identity = fIdentity
   #self.alnLen = iAlnLen
   #self.mismatches = iMismatches
   #self.gapOpenings = iGapOpenings
   self.queryStart = int(iQueryStart)
   self.queryEnd = int(iQueryEnd)
-  self.envStart = int(iEnvStart)
-  self.envEnd = int(iEnvEnd)
   self.hitStart = int(iHitStart)
   self.hitEnd = int(iHitEnd)
+  self.strand = sStrand
+  self.gc = float(fGC)
   self.eval = float(fE)
   self.score = float(fBits)
   #if sAlnSeq != None:
@@ -27,21 +27,15 @@ class Hit:
   #if sHitSeq != None:
   # self.hitSeq = sHitSeq
  def show(self):
-  return self.queryId, self.hitId, self.eval, self.score, self.queryStart, self.queryEnd
+  return self.queryId, self.hitId, self.queryStart, self.queryEnd, self.hitStart, self.hitEnd, self.eval, self.score
 
-class ParseHmmer:
- def __init__(self, file, nooverlap=False, filter=''):
+class ParseCm:
+ def __init__(self, file, cmscan, nooverlap=False):
   self.file = file
   self.sFormat = format
   self.end = 0
-  self.iNooverlap = nooverlap
-  self.sFilter = filter
-  self.init()
- def __iter__(self):
-  return self
- def __next__(self):
-  return self.next()
- def init(self):
+  self.iNooverlap = bool(nooverlap)
+  self.bCmscan = bool(cmscan)
   self.lFirstLine = []
   for sLine in self.file:
    if sLine[0] == '#' or sLine.strip() == '':
@@ -50,11 +44,17 @@ class ParseHmmer:
    break
   if self.lFirstLine == []:
    self.end = 1
+ def __iter__(self):
+  return self
  def next(self):
+  if self.end:
+   raise StopIteration
   lHits = [self.lFirstLine]
   try:
    while True:
     lLine = re.split('\s+', self.file.next().strip(), 22)
+    if lLine[0] == '#':
+     continue
     if lLine[3] != lHits[0][3]:
      self.lFirstLine = lLine
      break
@@ -68,10 +68,14 @@ class ParseHmmer:
   for lHit in lHits:
    if len(lHit) < 20:
     continue
-   hit = Hit(lHit[3], lHit[0], lHit[1], lHit[22], lHit[17], lHit[18], lHit[19], lHit[20], lHit[15], lHit[16], lHit[12], lHit[13])
+   (sHitId, sHitAccession, sQueryId, sQueryAccession, sMdl, sMdlFrom, sMdlTo, sSeqFrom, sSeqTo, sStrand, sTrunc, sPass, sGc, sBias, sScore, sEval, sInc, sHitDesc) = lHit[:18]
+   if self.bCmscan:
+    hit = Hit(sQueryId, sQueryAccession, sHitId, sHitAccession, sSeqFrom, sSeqTo, sMdlFrom, sMdlTo, sStrand, sGc, sEval, sScore)
+   else:
+    hit = Hit(sQueryId, sQueryAccession, sHitId, sHitAccession, sMdlFrom, sMdlTo, sSeqFrom, sSeqTo, sStrand, sGc, sEval, sScore)
    lHitsOut.append(hit)
-  
   if self.iNooverlap:
+   raise
    lHitsTemp = []
    for hit in sorted(lHitsOut, key=lambda x:(x.eval, -x.score)):
     iStart1 = hit.queryStart
