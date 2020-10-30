@@ -1,6 +1,10 @@
 import os
 import re
+import pickle
 from multiprocessing import Process
+import numpy
+#import sklearn
+from sklearn.svm import SVC
 
 from SeqIO import SeqIO
 from ParseHmmer import ParseHmmer
@@ -105,9 +109,9 @@ class Annotation:
                     elif sProcess == 'lll':
                         dKegg[sKeggCategory][sPrimaryId][sColumn] = map(lambda x:map(lambda y:y.split(), x.split(',')), lLine[iColumn].split(';'))
                     else:
-                        print sKeggCategory
-                        print lLine
-                        print (sColumn, sProcess, sType)
+                        print(sKeggCategory)
+                        print(lLine)
+                        print(sColumn, sProcess, sType)
                         raise
         for (sOrtholog, dOrtholog) in dKegg['orthologs'].items():
             dKegg['orthologs'][sOrtholog]['pathways'] = []
@@ -250,6 +254,85 @@ class Annotation:
             self.dSeqId2Annotation[seq.id]['pts1matches'] = iMatches
             self.dSeqId2Annotation[seq.id]['pts1score'] = fScore
         self.lColumns += ['pts1score', 'pts1matches', 'pts1seq']
+    def seq2array(self, sSeq):
+        sAas = 'ARNDCQEGHILKMFPSTWYV'
+        aArray = numpy.zeros((len(sSeq)*20,))
+        for i in range(len(sSeq)):
+            try:
+                aArray[i*20+sAas.index(sSeq[i])] = 1
+            except:
+                pass
+        return aArray
+    def trainPts1ML(self, sPositiveFile, sNegativeFile, iCLen=10):
+        sAas = 'ARNDCQEGHILKMFPSTWYV'
+        self.iCLen = 10
+        ## read positive set
+        dPts1Used = {}
+        lPts1 = []
+        for seq in SeqIO(open(sPositiveFile)):
+            sPts1 = seq.seq.strip('*').upper().replace('U','S')[-iCLen:]
+            #sPts1 = seq.seq.strip('*').upper().replace('U','S')[-iCLen-1:-1] ## for test purpose !!!
+            if sPts1 in dPts1Used:
+                continue
+            dPts1Used[sPts1] = None
+            if len(sPts1) >= iCLen and not re.search('[^'+sAas+']', sPts1):
+                lPts1.append( sPts1 )
+        ## read negative set
+        dPts1Used = {}
+        lNonPts1 = []
+        lNegativeFiles = [(sNegativeFile, 0)]
+        for (sNegativeFile, bPeroxisomes) in lNegativeFiles:
+            for seq in SeqIO(open(sNegativeFile)):
+                if bPeroxisomes:
+                    seq.seq = seq.seq.strip('*')[:-1]
+                sPts1 = seq.seq.strip('*').upper().replace('U','S')[-iCLen:]
+                if sPts1 in dPts1Used:
+                    continue
+                dPts1Used[sPts1] = None
+                if len(sPts1) >= iCLen and not re.search('[^'+sAas+']', sPts1):
+                    lNonPts1.append( sPts1 )
+        ## sequences to arrays
+        x_pts = []
+        y_pts = []
+        for i in range(len(lPts1)):
+            sPts1 = lPts1[i]
+            aX = self.seq2array(sPts1)
+            x_pts.append(aX)
+            y_pts.append(1)
+        x_pts = numpy.array(x_pts)
+        y_pts = numpy.array(y_pts)
+        print('x_pts', x_pts.shape)
+        x_nonpts = []
+        y_nonpts = []
+        for i in range(len(lNonPts1)):
+            sPts1 = lNonPts1[i]
+            aX = self.seq2array(sPts1)
+            x_nonpts.append(aX)
+            y_nonpts.append(0)
+        x_nonpts = numpy.array(x_nonpts)
+        y_nonpts = numpy.array(y_nonpts)
+        x = numpy.concatenate((x_pts, x_nonpts))
+        y = numpy.concatenate((y_pts, y_nonpts))
+        print('x_nonpts', x_nonpts.shape)
+        #model = sklearn.svm.SVC(probability=True)
+        model = SVC(probability=True)
+        model.fit(x, y)
+        pickle.dump(model, open('trainPts1ML.model.pickle','wb'))
+    def predictPts1ML(self, sModelFile='trainPts1ML.model.pickle', iCLen=10):
+        model = pickle.load(open(sModelFile,'rb'))
+        for seq in SeqIO(open(self.sDir+self.sInfilename)):
+            if seq.id not in self.dSeqId2Annotation:
+                self.dSeqId2Annotation[seq.id] = {'id':seq.id}
+            sPts1 = seq.seq.strip('*').upper().replace('U','S')[-iCLen:]
+            if len(sPts1) < iCLen:
+                self.dSeqId2Annotation[seq.id]['pts1MLseq'] = ''
+                self.dSeqId2Annotation[seq.id]['pts1MLprob'] = 0
+                continue
+            aSeq = [self.seq2array(sPts1)]
+            fProb = model.predict_proba(aSeq)[0][1]
+            self.dSeqId2Annotation[seq.id]['pts1MLseq'] = sPts1
+            self.dSeqId2Annotation[seq.id]['pts1MLprob'] = fProb
+        self.lColumns += ['pts1MLprob', 'pts1MLseq']
     def predictPts2(self):
         for seq in SeqIO(open(self.sDir+self.sInfilename)):
             if seq.id not in self.dSeqId2Annotation:
@@ -273,7 +356,7 @@ class Annotation:
         fileOut = open(self.sDir+self.sInfilename+'.tmhmm.thread'+str(iThread),'w')
         for seq in SeqIO(open(self.sDir+self.sInfilename+'.thread'+str(iThread))):
             open(self.sDir+'runTmhmm.temp01.'+self.sInfilename+'.thread'+str(iThread),'w').write('>'+seq.id+'\n'+seq.seq+'\n')
-            os.system('cat '+self.sDir+'runTmhmm.temp01.'+self.sInfilename+'.thread'+str(iThread)+' | /home/zarsky/software/tmhmm-2.0c/bin/decodeanhmm.Linux_x86_64 -optionfile /home/zarsky/software/tmhmm-2.0c/lib/TMHMM2.0.options -modelfile /home/zarsky/software/tmhmm-2.0c/lib/TMHMM2.0.model | perl /home/zarsky/software/tmhmm-2.0c/bin/tmhmmformat.pl > '+self.sDir+'runTmhmm.temp02.'+self.sInfilename+'.thread'+str(iThread))
+            #os.system('cat '+self.sDir+'runTmhmm.temp01.'+self.sInfilename+'.thread'+str(iThread)+' | /home/zarsky/software/tmhmm-2.0c/bin/decodeanhmm.Linux_x86_64 -optionfile /home/zarsky/software/tmhmm-2.0c/lib/TMHMM2.0.options -modelfile /home/zarsky/software/tmhmm-2.0c/lib/TMHMM2.0.model | perl /home/zarsky/software/tmhmm-2.0c/bin/tmhmmformat.pl > '+self.sDir+'runTmhmm.temp02.'+self.sInfilename+'.thread'+str(iThread))
             sNTopology = None
             lTmds = []
             for sLine in open(self.sDir+'runTmhmm.temp02.'+self.sInfilename+'.thread'+str(iThread)):
@@ -290,7 +373,7 @@ class Annotation:
         fileOut.close()
         os.system('rm -f '+self.sDir+'runTmhmm.temp01.'+self.sInfilename+'.thread'+str(iThread))
         os.system('rm -f '+self.sDir+'runTmhmm.temp02.'+self.sInfilename+'.thread'+str(iThread))
-    def runTmhmm(self):
+    def runTmhmmArch(self):
         lProcesses = []
         for iThread in range(self.iCpus):
             p = Process(target=self.runTmhmmProcess, args=(iThread,))
@@ -303,7 +386,16 @@ class Annotation:
             fileOut.write(open(self.sDir+self.sInfilename+'.tmhmm.thread'+str(iThread)).read())
             os.system('rm '+self.sDir+self.sInfilename+'.tmhmm.thread'+str(iThread))
         fileOut.close()
-    def parseTmhmm(self, tmhmmfilename=None):
+    def runTmhmm(self, sTmhmmDir='/home/zarsky/software/tmhmm-2.0c/bin/'):
+        sMyDir = os.getcwd()
+        os.system('cp '+self.sDir+self.sInfilename+' '+sTmhmmDir+self.sInfilename)
+        os.chdir(sTmhmmDir)
+        os.system('tmhmm '+self.sInfilename+' > '+self.sInfilename+'.tmhmm')
+        os.chdir(sMyDir)
+        os.system('mv '+sTmhmmDir+self.sInfilename+'.tmhmm '+self.sDir+self.sInfilename+'.tmhmm')
+        os.system('rm -f '+sTmhmmDir+self.sInfilename)
+        os.system('rm -r -f '+sTmhmmDir+'TMHMM_*')
+    def parseTmhmmArch(self, tmhmmfilename=None):
         if tmhmmfilename == None:
             tmhmmfilename = self.sInfilename+'.tmhmm.tsv'
         for sLine in open(self.sDir+tmhmmfilename):
@@ -315,6 +407,28 @@ class Annotation:
             self.dSeqId2Annotation[sSeqId]['tmhmmNTmds'] = int(sNTmds)
             self.dSeqId2Annotation[sSeqId]['tmhmmTopology'] = sTopology
             self.dSeqId2Annotation[sSeqId]['tmhmmTmds'] = lTmds
+        self.lColumns += ['tmhmmNTmds','tmhmmTmds','tmhmmTopology']
+    def parseTmhmm(self, tmhmmfilename=None):
+        if tmhmmfilename == None:
+            tmhmmfilename = self.sInfilename+'.tmhmm'
+        sNTopology = None
+        lTmds = []
+        lLines = open(self.sDir+tmhmmfilename).read().strip().split('\n') ## not great for super-big files
+        for iLine in range(len(lLines)):
+            sLine = lLines[iLine]
+            if sLine[0] == '#':
+                continue
+            (sSeqId, sProgram, sFeature, sStart, sEnd) = sLine.strip().split()
+            if sNTopology == None and sFeature in ['inside','outside']:
+                sNTopology = sFeature
+            if sFeature == 'TMhelix':
+                lTmds.append( (int(sStart), int(sEnd)) )
+            if iLine+1 == len(lLines) or lLines[iLine+1][0] == '#':
+                self.dSeqId2Annotation[sSeqId]['tmhmmNTmds'] = len(lTmds)
+                self.dSeqId2Annotation[sSeqId]['tmhmmTopology'] = sNTopology
+                self.dSeqId2Annotation[sSeqId]['tmhmmTmds'] = lTmds
+                sNTopology = None
+                lTmds = []
         self.lColumns += ['tmhmmNTmds','tmhmmTmds','tmhmmTopology']
     def runTargetpProcess(self, iThread, sPlant='False'):
         sOrg = 'non-pl'
@@ -431,7 +545,7 @@ class Annotation:
                         fileOut.write(dPredictionsAndAttributes[sAttr])
                         del dPredictionsAndAttributes[sAttr]
                 if len(dPredictionsAndAttributes) > 0:
-                    print dPredictionsAndAttributes
+                    print(dPredictionsAndAttributes)
                     raise
                 fileOut.write('\n')
             os.system('rm -f '+self.sDir+'runPsort.temp*.'+self.sInfilename+'.thread'+str(iThread))
@@ -454,10 +568,15 @@ class Annotation:
                 self.dSeqId2Annotation[sId]['psort.'+sAttr] = float(dLine[sAttr])
         for sAttr in lColumns[1:]:
             self.lColumns.append('psort.'+sAttr)
-    def writeAnnotations(self):
-        tableOut = open(self.sDir+self.sInfilename+'.annotations.tsv','w')
+    def writeAnnotations(self, lSelectedIdsOnly=None):
+        if lSelectedIdsOnly == None:
+            tableOut = open(self.sDir+self.sInfilename+'.annotations.tsv','w')
+        else:
+            tableOut = open(self.sDir+self.sInfilename+'.sel.annotations.tsv','w')
         tableOut.write( '\t'.join( map(lambda x:str(x), self.lColumns) )+'\n' )
         for seq in SeqIO(open(self.sDir+self.sInfilename)):
+            if lSelectedIdsOnly != None and seq.id.split('-')[0].strip('A') not in lSelectedIdsOnly: ####!!!!
+                continue
             lLineOut = []
             for sColumn in self.lColumns:
                 if sColumn in self.dSeqId2Annotation[seq.id]:
