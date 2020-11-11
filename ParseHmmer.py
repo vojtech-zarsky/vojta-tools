@@ -56,7 +56,10 @@ class ParseHmmer:
         lHits = [self.lFirstLine]
         try:
             while True:
-                lLine = re.split('\s+', next(self.file).strip(), 22)
+                sLine = next(self.file).strip()
+                if sLine == '' or sLine[0] == '#':
+                    continue
+                lLine = re.split('\s+', sLine, 22)
                 if lLine[3] != lHits[0][3]:
                     self.lFirstLine = lLine
                     break
