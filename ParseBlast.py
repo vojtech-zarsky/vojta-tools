@@ -86,7 +86,8 @@ class ParseBlast:
  
  def next(self):
   if self.end:
-   raise StopIteration()
+   #raise StopIteration()
+   return []
   if self.sFormat == 'table':
    lReturn = self.nextTable()
   elif self.sFormat == 'mytable':
