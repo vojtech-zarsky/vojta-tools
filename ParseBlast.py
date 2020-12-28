@@ -4,7 +4,7 @@ import copy
 import numpy as np
 
 class Hit:
-    def __init__(self, sDb, sQueryId, sHitId, fIdentity, iAlnLen, iMismatches, iGapOpenings, iQueryStart, iQueryEnd, iHitStart, iHitEnd, fE, fBits, sAlnSeq=None):#, sQuerySeq=None, sHitSeq=None):
+    def __init__(self, sDb, sQueryId, sHitId, fIdentity, iAlnLen, iMismatches, iGapOpenings, iQueryStart, iQueryEnd, iHitStart, iHitEnd, fE, fBits, sAlnSeq=None, sQuerySeq=None, sHitSeq=None):
         self.db = sDb
         self.queryId = sQueryId
         self.hitId = sHitId
@@ -20,20 +20,21 @@ class Hit:
         self.score = fBits
         if sAlnSeq != None:
             self.alnSeq = sAlnSeq
-        #if sQuerySeq != None:
-        # self.querySeq = sQuerySeq
-        #if sHitSeq != None:
-        # self.hitSeq = sHitSeq
+        if sQuerySeq != None:
+            self.querySeq = sQuerySeq
+        if sHitSeq != None:
+            self.hitSeq = sHitSeq
     def show(self):
         return self.queryId, self.hitId, self.identity, self.alnLen, self.mismatches, self.gapOpenings, self.queryStart, self.queryEnd, self.hitStart, self.hitEnd, self.eval, self.score
 
 class ParseBlast:
-    def __init__(self, file, mergeHsps=True, format='table', ncbi=False):
+    def __init__(self, file, mergeHsps=True, format='table', ncbi=False, separator=None):
         self.file = file
         self.bMergeHsps = mergeHsps
         self.sFormat = format
         self.end = 0
         self.bNcbi = ncbi
+        self.sSeparator = separator
         if self.sFormat == 'table':
             self.initTable()
         elif self.sFormat == 'mytable':
@@ -42,6 +43,8 @@ class ParseBlast:
             self.initXml()
         elif self.sFormat == 'hspsxml':
             self.initXml()
+        elif self.sFormat == 'classic':
+            self.initClassic()
         else:
             raise
     def __iter__(self):
@@ -84,6 +87,10 @@ class ParseBlast:
         if self.sFirstLine == '':
             self.end = 1
     
+    def initClassic(self):
+        self.file.readline()
+        return 0
+
     def next(self):
         if self.end:
             raise StopIteration()
@@ -96,6 +103,8 @@ class ParseBlast:
             lReturn = self.nextXml()
         elif self.sFormat == 'hspsxml':
             lReturn = self.nextHspsXml()
+        elif self.sFormat == 'classic':
+            lReturn = self.nextClassic()
         else:
             raise
         if self.bMergeHsps:
@@ -179,6 +188,20 @@ class ParseBlast:
         except:
             self.end = 1
         return self.parseHspsXml(sHits)
+    
+    def nextClassic(self):
+        sHits = ''
+        try:
+            while True:
+                sLine = self.file.readline()
+                if sLine == '':
+                    raise StopIteration
+                if self.sSeparator in sLine:
+                    break
+                sHits += sLine
+        except:
+            self.end = 1
+        return self.parseClassic(sHits)
     
     def parseTable(self, lHits):
         if len(lHits) == 0 or len(lHits[0]) == 0:
@@ -373,6 +396,65 @@ class ParseBlast:
                 dHsp['logE'] = self.getE( dHsp['e'] )
                 lHspsOut.append(dHsp)
         return lHspsOut
+    
+    def parseClassic(self, sHits):
+        lHitsOut = []
+        sQueryId = sHits.split('Query= ')[1].split(' ',1)[0].strip()
+        for sHit in sHits.split('\n>')[1:]:
+            sHitId = sHit.strip().split(' ',1)[0].strip()
+            for sHsp in sHit.split('Score =')[1:]:
+                sHsp = sHsp.strip()
+                fScore = float(sHsp.strip().split(' ',1)[0])
+                sE = sHsp.split('Expect')[1].split('=')[1].split(',',1)[0].strip()
+                if sE[0] == 'e':
+                    sE = '1'+sE
+                fE = float(sE)
+                fIdentity = float(sHsp.split('Identities =')[1].split('(')[1].split('%')[0])
+                iAlnLen = int(sHsp.split('Identities =')[1].split('/',1)[1].split(' ',1)[0])
+                sQuerySeq = ''
+                iQueryStart, iQueryEnd = None, None
+                for sTemp in sHsp.split('\nQuery:')[1:]:
+                    sTemp = sTemp.split('\n',1)[0].strip()
+                    sStart = ''
+                    sTempSeq = ''
+                    sEnd = ''
+                    for s in sTemp:
+                        if s == ' ':
+                            continue
+                        elif s.isdigit():
+                            if sTempSeq == '':
+                                sStart += s
+                            else:
+                                sEnd += s
+                        else:
+                            sTempSeq += s
+                    sQuerySeq += sTempSeq
+                    if iQueryStart == None:
+                        iQueryStart = int(sStart)
+                    iQueryEnd = int(sEnd)
+                sHitSeq = ''
+                iHitStart, iHitEnd = None, None
+                for sTemp in sHsp.split('\nSbjct:')[1:]:
+                    sTemp = sTemp.split('\n',1)[0].strip()
+                    sStart = ''
+                    sTempSeq = ''
+                    sEnd = ''
+                    for s in sTemp:
+                        if s == ' ':
+                            continue
+                        elif s.isdigit():
+                            if sTempSeq == '':
+                                sStart += s
+                            else:
+                                sEnd += s
+                        else:
+                            sTempSeq += s
+                    sHitSeq += sTempSeq
+                    if iHitStart == None:
+                        iHitStart = int(sStart)
+                    iHitEnd = int(sEnd)
+                lHitsOut.append( Hit(self.file.name, sQueryId, sHitId, fIdentity, iAlnLen, None, None, iQueryStart, iQueryEnd, iHitStart, iHitEnd, fE, fScore, sQuerySeq=sQuerySeq, sHitSeq=sHitSeq) )
+        return lHitsOut
 
 
     
