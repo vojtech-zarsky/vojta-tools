@@ -58,12 +58,6 @@ class SeqIO:
                 return seq
                 break
         return 0
-    def getDict(self):
-        dSeqs = {}
-        while not self.end:
-            seq = self.next()
-            dSeqs[seq.id] = seq
-        return dSeqs
 
 class Annotation:
     def __init__(self, infilename=None, dir='./', moltype='aa', cpus=1):
@@ -181,8 +175,8 @@ class Annotation:
         print('x_nonpts', x_nonpts.shape)
         model = SVC(probability=True)
         model.fit(x, y)
-        pickle.dump(model, open('predictPTS1_ML.model.pickle','wb'))
-    def predictPts1ML(self, sModelFile='predictPTS1_ML.model.pickle', iCLen=10):
+        pickle.dump(model, open('trainPts1ML.model.pickle','wb'))
+    def predictPts1ML(self, sModelFile='trainPts1ML.model.pickle', iCLen=10):
         model = pickle.load(open(sModelFile,'rb'))
         for seq in SeqIO(open(self.sDir+self.sInfilename)):
             if seq.id not in self.dSeqId2Annotation:
@@ -387,9 +381,9 @@ class Annotation:
             self.lColumns.append('psort.'+sAttr)
     def writeAnnotations(self, lSelectedIdsOnly=None):
         if lSelectedIdsOnly == None:
-            tableOut = open(self.sDir+self.sInfilename+'.pts1ML.tsv','w')
+            tableOut = open(self.sDir+self.sInfilename+'.annotations.tsv','w')
         else:
-            tableOut = open(self.sDir+self.sInfilename+'.sel.pts1ML.tsv','w')
+            tableOut = open(self.sDir+self.sInfilename+'.sel.annotations.tsv','w')
         tableOut.write( '\t'.join( map(lambda x:str(x), self.lColumns) )+'\n' )
         for seq in SeqIO(open(self.sDir+self.sInfilename)):
             if lSelectedIdsOnly != None and seq.id.split('-')[0].strip('A') not in lSelectedIdsOnly: ####!!!!
@@ -434,71 +428,23 @@ class Annotation:
         for iThread in range(self.iCpus):
             os.system('rm -f '+self.sDir+self.sInfilename+'.thread'+str(iThread))
 
-print('prerequisities:\n\
-    sklearn\n\
-\n\
-arguments:\n\
-    truncate <fileToBeTruncated> (trunctes last aminoacid)\n\
-    train <pts1file> <non-pts1file> (trains the machine learning model)\n\
-    predict <infile> (<modelfile>) (predict PTS1)\n\
-')
+print('arguments:\n\
+    train <pts1file> <non-pts1file>\n\
+    predict <infile>\
+    ')
 
-if sys.argv[1] == 'truncate':
-    print('Truncating...')
-    sFileToBeTruncated = sys.argv[2]
-    if not os.path.isfile(sFileToBeTruncated):
-        print('file not found!')
-        raise
-    fileOut = open(sFileToBeTruncated+'.lastAAtrimmed','w')
-    for seq in SeqIO(open(sFileToBeTruncated)):
-        sSeqTrimmed = seq.seq.strip('*')[:-1]
-        if len(sSeqTrimmed) > 0:
-            fileOut.write('>'+seq.id+'\n'+sSeqTrimmed+'\n')
-    fileOut.close()
-elif sys.argv[1] == 'train':
-    print('Training...')
-    sPositiveFile = sys.argv[2]
-    sNegativeFile = sys.argv[3]
-    annotation = Annotation()
-    annotation.trainPts1ML(sPositiveFile, sNegativeFile, iCLen=10)
-elif sys.argv[1] == 'predict':
-    print('Predicting...')
-    sInfile = sys.argv[2]
-    sModelfile = 'predictPTS1_ML.model.pickle'
-    if len(sys.argv) > 3:
-        sModelfile = sys.argv[3]
-    annotation = Annotation(sInfile)
-    annotation.parseSeqProperties()
-    annotation.predictPts1ML(sModelfile)
-    annotation.writeAnnotations()
-    annotation.clean()
-else:
-    print('invalid argument!')
-    raise
-
-
-"""
-
-#lEntamoebas = ['eh','en','ed','em','ei']
-lEntamoebas = ['eh','en','ed','em','ei']
-for sEntamoeba in lEntamoebas:
-    print sEntamoeba
-    annotation = Annotation(sEntamoeba+'.fa', cpus=1)
-    annotation.parseSeqProperties(parseIdFunction=lambda x:x.split('-')[0], parseDescFunction=lambda x:x.split(' gene_product=')[1].split('|')[0].strip())
-    #annotation.runEggnog() #
-    #annotation.runKofam()
-    #annotation.runTmhmm() #
-    #annotation.runTargetp() #
-    #annotation.runPsort() #
-    annotation.readKegg()
-    annotation.parseEggnog()
-    annotation.parseKofamFromEggnog()
-    annotation.parseTmhmm()
-    annotation.predictPts1()
-    annotation.parseTargetp()
-    annotation.parsePsort()
-    #print annotation.dSeqId2Annotation['EHI7A_110630-t26_1-p1']
-    annotation.writeAnnotations()
-    #annotation.clean()
-"""
+if len(sys.argv) >= 2:
+    if sys.argv[1] == 'train' and len(sys.argv) >= 4:
+        print('training...')
+        annotation = Annotation()
+        annotation.trainPts1ML(sys.argv[2], sys.argv[3], iCLen=10)
+        print('DONE.')
+    if sys.argv[1] == 'predict' and len(sys.argv) >= 3:
+        print('prediction...')
+        annotation = Annotation(sys.argv[2])
+        annotation.parseSeqProperties()
+        annotation.predictPts1ML()
+        annotation.writeAnnotations()
+        annotation.clean()
+        print('DONE.')
 
