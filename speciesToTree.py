@@ -1,9 +1,8 @@
 ## DEPENDENCIES:
-## Taxonomy (https://github.com/vojtech-zarsky/vojta-tools/blob/master/Taxonomy.py)
+## Taxonomy.py (https://github.com/vojtech-zarsky/vojta-tools/blob/master/Taxonomy.py)
 ## ete3 (http://etetoolkit.org/)
 ## USAGE:
-## python speciesToTree.py <list of NCBI taxids> <ncbi taxdump directory>
-## python speciesToTree.py <table of species with taxonomies>
+## python speciesToTree.py  --inFile <list of taxids of species names> --taxdump <NCBI taxdump directory> [--library <location of Taxonomy.py file>]
 
 import sys
 import re
