@@ -3,23 +3,28 @@
 ## ete3 (http://etetoolkit.org/)
 ## USAGE:
 ## python speciesToTree.py <list of NCBI taxids> <ncbi taxdump directory>
+## python speciesToTree.py <table of species with taxonomies>
 
 import sys
 import re
-from Taxonomy import Taxonomy
+import argparse
 from ete3 import Tree, TreeStyle, TextFace, faces
 
-if len(sys.argv) < 3:
-    print('\n\
-DEPENDENCIES:\n\
-    Taxonomy (https://github.com/vojtech-zarsky/vojta-tools/blob/master/Taxonomy.py)\n\
-    ete3 (http://etetoolkit.org/)\n\
-USAGE:\n\
-    python speciesToTree.py <list of NCBI taxids> <ncbi taxdump directory>\n')
-    raise
 
-sInFile = sys.argv[1]
-sTaxdumpDir = sys.argv[2]
+parser = argparse.ArgumentParser(prog='Build a tree from a list of species. DEPENDENCIES: Taxonomy.py (https://github.com/vojtech-zarsky/vojta-tools/blob/master/Taxonomy.py), ete3 (http://etetoolkit.org/)')
+
+parser.add_argument('--inFile', required=True, help='list of taxids or species names')
+parser.add_argument('--taxdump', required=True, help='NCBI taxdump directory, can be downloaded here: https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz')
+parser.add_argument('--library', required=False, default='./', help='Location of Vojta\'s Taxonomy.py file. Default: current directory')
+args = parser.parse_args()
+
+sInFile = args.inFile
+sTaxdumpDir = args.taxdump
+sLib = args.library
+sLib = sLib.split('Taxonomy.py')[0]
+
+sys.path.append(sLib)
+from Taxonomy import Taxonomy
 
 #sInFile = 'speciesToTree_test.txt'
 #sTaxdumpDir = './taxdump/'
@@ -55,9 +60,20 @@ def taxonomies2Tree(lTaxonomies):
 
 taxonomy = Taxonomy(sTaxdumpDir=sTaxdumpDir)
 lTaxonomies = []
+iLine = 0
 for sLine in open(sInFile):
+    iLine += 1
     sTaxId = sLine.strip()
-    lTaxonomy = taxonomy.getTaxonomyByTaxId(sTaxId)
+    if sTaxId == '':
+        continue
+    lTaxonomy = []
+    if sTaxId.isdigit():
+        lTaxonomy = taxonomy.getTaxonomyByTaxId(sTaxId)
+    else:
+        lTaxonomy = taxonomy.getTaxonomy(sTaxId)
+    if len(lTaxonomy) < 4:
+        print('SHORT/MISSING TAXONOMY line:{}, taxid:{}, taxonomy:{}'.format(iLine, sTaxId, lTaxonomy))
+        raise
     lTaxonomy = list(map(lambda x:'{} {}'.format(re.sub('^ a-zA-Z0-9_','',x[1]), x[0]), lTaxonomy))[::-1]
     lTaxonomies.append(lTaxonomy)
 
